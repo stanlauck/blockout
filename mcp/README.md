@@ -84,7 +84,7 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 
 ## Tools
 
-33 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
+34 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
 
 | Tool | Params | Does |
 |---|---|---|
@@ -120,6 +120,7 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `import_scan` | `sourcePath` | Import a Gaussian-splat / photogrammetry scan (`.ply/.splat/.spz/.ksplat`) into `scans/` as an editor-only environment. Returns the created scan. |
 | `set_scan_transform` | `scanId, position?, rotationDeg?, scale?, visible?, flipped?` | Position / rotate / scale / show-hide an imported scan; `flipped` rights upside-down .splat exports. Omitted fields unchanged. |
 | `remove_scan` | `scanId` | Remove an imported scan from the current scene. |
+| `export_shot` | `profileId?, shotId?, passes?, labels?, resolution?` | Export the active shot as a generator package — the same Deliver-mode button: clean/depth/normal mp4 passes, stills, top-down diagram, prompt, metadata. Returns `{ path, files }`. |
 | `set_reference` | `videoPath, handoffVersion?, mode?, opacity?` | Attach a reference clip (copied into `refs/`) as a ghost/PIP underlay. Motion Previs sends independent handoff protocol version `1`; missing version remains accepted for legacy clients. |
 
 ---

@@ -464,6 +464,31 @@ const TOOLS = [
     }
   },
   {
+    name: 'export_shot',
+    description:
+      'Export the active shot as a generator package (the Deliver-mode button): clean/depth/normal mp4 passes, stills at every camera mark, top-down diagram, prompt.txt, and metadata.json. Returns { path, files }. Runs the shot export seed stored with the project, so repeated calls replay identical bytes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        profileId: { type: 'string', description: "Generator profile id (default: the project's default profile). Built-ins: seedance-2, veo-3.1, kling-2, ltx-2.3, wan-2.2, gpt-image-2, nano-banana, ideogram, krea-2." },
+        shotId: { type: 'string', description: 'Shot to export (default: the active shot). Selects it first.' },
+        passes: {
+          type: 'object',
+          description: 'Which video passes to render (defaults: clean + depth).',
+          properties: {
+            clean: { type: 'boolean', description: 'Clean motion-reference pass.' },
+            depth: { type: 'boolean', description: 'Depth pass (structure conditioning).' },
+            normal: { type: 'boolean', description: 'Normal pass.' }
+          },
+          additionalProperties: false
+        },
+        labels: { type: 'string', enum: ['on', 'stillsOnly', 'off'], description: 'Where entity labels appear (default: stillsOnly).' },
+        resolution: { type: 'string', enum: ['auto', '720p', '1080p'], description: 'Output resolution (default: auto — the profile native size).' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'set_reference',
     description:
       'Attach a reference video to the active shot (the Motion Previs Studio handoff v1). The clip is copied into the project’s refs/ folder and shown as a ghost underlay (or picture-in-picture) so you can match blocking against it by eye. videoPath is an absolute path to the source clip.',

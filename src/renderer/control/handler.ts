@@ -11,7 +11,8 @@ import { useStore } from '../store'
 import { ASSET_CATALOG, assetSpec } from '@engine/assets'
 import { createActorMark, createCameraMark } from '@engine/schema'
 import { newId } from '@engine/ids'
-import { renderStillPngForTest } from '../export/exporter'
+import { BUILTIN_PROFILES } from '@engine/profiles'
+import { renderStillPngForTest, exportShot, type ExportResolution } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
 import type { ChoreoKind, FormationId, RoutineSpec } from '@engine/choreography'
@@ -600,6 +601,53 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const bytes = new Uint8Array(png)
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
       return { imageBase64: btoa(binary) }
+    }
+
+    case 'export_shot': {
+      requireDoc()
+      // The same Deliver-mode export the "Export shot package" button runs —
+      // defaulting to the panel's defaults (the project's default profile,
+      // clean + depth, labels on stills only).
+      const scene0 = s.scene()
+      if (!scene0) throw new Error('No scene selected.')
+      const shotIdParam = str(params, 'shotId')
+      if (shotIdParam) {
+        if (![...scene0.shots, ...(scene0.drafts ?? [])].some((sh) => sh.id === shotIdParam)) {
+          throw new Error(`No shot "${shotIdParam}" — call get_state for shot ids.`)
+        }
+        s.selectShot(shotIdParam)
+        await new Promise((r) => setTimeout(r, 100)) // let the SceneManager rebuild
+      }
+      const profileId = str(params, 'profileId') ?? useStore.getState().doc!.settings.defaultProfileId
+      if (!BUILTIN_PROFILES.some((p) => p.id === profileId)) {
+        throw new Error(
+          `Unknown profileId "${profileId}". Valid: ${BUILTIN_PROFILES.map((p) => p.id).join(', ')}`
+        )
+      }
+      const passesParam = params.passes as Params | undefined
+      const passes = {
+        clean: (passesParam ? bool(passesParam, 'clean') : undefined) ?? true,
+        depth: (passesParam ? bool(passesParam, 'depth') : undefined) ?? true,
+        normal: (passesParam ? bool(passesParam, 'normal') : undefined) ?? false
+      }
+      const labels = str(params, 'labels')
+      if (labels !== undefined && !['on', 'stillsOnly', 'off'].includes(labels)) {
+        throw new Error("labels must be 'on', 'stillsOnly', or 'off'.")
+      }
+      const resolution = str(params, 'resolution')
+      if (resolution !== undefined && !['auto', '720p', '1080p'].includes(resolution)) {
+        throw new Error("resolution must be 'auto', '720p', or '1080p'.")
+      }
+      const result = await exportShot({
+        profileId,
+        passes,
+        labels: (labels as 'on' | 'stillsOnly' | 'off' | undefined) ?? 'stillsOnly',
+        resolution: (resolution as ExportResolution | undefined) ?? 'auto'
+      })
+      if (!result.ok || !result.packagePath) {
+        throw new Error(result.error ?? 'Export failed.')
+      }
+      return { path: result.packagePath, files: result.files ?? [] }
     }
 
     case 'set_reference': {

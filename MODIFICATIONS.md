@@ -35,3 +35,19 @@ patch syntax and are documented by path under `third_party/ffmpeg/`.
 A stable or commercial distribution remains gated on upstream/trademark
 permission, platform code signing/notarization, a final FFmpeg/H.264
 distribution review, and the ordinary complete third-party compliance review.
+
+## Upstream contribution branches (2026)
+
+### `upstream/export-shot-action`
+
+- New control action `export_shot` in `src/renderer/control/handler.ts`: runs
+  the exact Deliver-mode export (`exportShot` from the Export button) with
+  the panel's defaults — params `profileId?`, `shotId?`,
+  `passes? { clean, depth, normal }`, `labels?`, `resolution?` — and returns
+  `{ path, files }`. The 600s timeout for it already existed in
+  `src/main/control.ts`; only the renderer handler was missing.
+- `exportShot`/`exportStillAtPlayhead` (renderer/export/exporter.ts) now
+  report every file they wrote (`files` on the result).
+- MCP tool `export_shot` in `mcp/blockout-mcp.mjs` + README row (34 tools).
+- E2E: `tests/e2e/control-tools.spec.ts` exports a real package through
+  control-RPC and asserts the path and file list on disk.

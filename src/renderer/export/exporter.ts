@@ -29,6 +29,8 @@ export interface ExportOptions {
 export interface ExportResult {
   ok: boolean
   packagePath?: string
+  /** Every file written by the export, in package order (agent-facing). */
+  files?: string[]
   error?: string
 }
 
@@ -280,12 +282,14 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
 
   manager.suspendLive = true
   try {
+    const files: string[] = []
     let done = 0
     for (const pass of passes) {
       const suffix = pass === 'clean' ? 'reference' : pass
+      const outPath = `${pkg}/${sanitize(shot.name)}_${suffix}.mp4`
       const result = await renderPassToMp4(
         manager,
-        `${pkg}/${sanitize(shot.name)}_${suffix}.mp4`,
+        outPath,
         pass,
         shot,
         width,
@@ -300,6 +304,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
         s.setExportProgress({ running: false, error: result.error })
         return { ok: false, error: result.error }
       }
+      files.push(outPath)
       done += Math.max(1, Math.round(shot.duration * shot.fps))
     }
 
@@ -320,28 +325,30 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
       if (isCancelled()) break
       manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels: stillLabels })
       const png = await canvasPng(canvas)
-      await window.blockout.exportWriteFile(
-        `${pkg}/stills/${sanitize(shot.name)}_${name}.png`,
-        png
-      )
+      const stillPath = `${pkg}/stills/${sanitize(shot.name)}_${name}.png`
+      await window.blockout.exportWriteFile(stillPath, png)
+      files.push(stillPath)
     }
 
     // --- Top-down blocking diagram
     manager.renderTopDown(renderer, 1600, 1600)
-    await window.blockout.exportWriteFile(
-      `${pkg}/stills/${sanitize(shot.name)}_topdown.png`,
-      await canvasPng(canvas)
-    )
+    const topdownPath = `${pkg}/stills/${sanitize(shot.name)}_topdown.png`
+    await window.blockout.exportWriteFile(topdownPath, await canvasPng(canvas))
+    files.push(topdownPath)
 
     // --- Prompt, metadata, ComfyUI workflow
     await window.blockout.exportWriteFile(`${pkg}/prompt.txt`, generatePrompt(scene, shot, profile) + '\n')
+    files.push(`${pkg}/prompt.txt`)
     await window.blockout.exportWriteFile(`${pkg}/metadata.json`, buildMetadata(scene, shot, profile))
+    files.push(`${pkg}/metadata.json`)
     if (profile.refModes.includes('depthVideo') || profile.id.startsWith('wan') || profile.id.startsWith('ltx')) {
       const workflow = buildComfyWorkflow(profile, shot, `${sanitize(shot.name)}_depth.mp4`, generatePrompt(scene, shot, profile))
       await window.blockout.exportWriteFile(`${pkg}/comfyui-workflow.json`, workflow)
+      files.push(`${pkg}/comfyui-workflow.json`)
     }
+    const readmePath = `${pkg}/README.txt`
     await window.blockout.exportWriteFile(
-      `${pkg}/README.txt`,
+      readmePath,
       [
         `Blockout export — ${scene.name} / Shot ${shot.name}`,
         ``,
@@ -360,6 +367,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
         .filter((l): l is string => l !== null)
         .join('\n')
     )
+    files.push(readmePath)
 
     const cancelled = isCancelled()
     s.setExportProgress({
@@ -368,7 +376,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
       error: cancelled ? 'cancelled' : undefined
     })
     if (cancelled) return { ok: false, error: 'cancelled' }
-    return { ok: true, packagePath: pkg }
+    return { ok: true, packagePath: pkg, files }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     s.setExportProgress({ running: false, error })
@@ -409,7 +417,7 @@ export async function exportStillAtPlayhead(
     const out = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/frames/${sanitize(shot.name)}_${t.toFixed(2)}s_${stamp}.png`
     await window.blockout.exportWriteFile(out, png)
     s.setExportProgress({ lastPackagePath: out })
-    return { ok: true, packagePath: out }
+    return { ok: true, packagePath: out, files: [out] }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   } finally {

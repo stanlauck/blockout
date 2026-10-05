@@ -8,8 +8,8 @@
  */
 
 import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdtempSync, writeFileSync, existsSync } from 'fs'
-import { tmpdir, homedir } from 'os'
+import { mkdtempSync, writeFileSync, existsSync, readdirSync } from 'fs'
+import { tmpdir } from 'os'
 import { join } from 'path'
 
 let app: ElectronApplication
@@ -61,7 +61,13 @@ test.beforeAll(async () => {
 
   app = await electron.launch({
     args: ['out/main/index.js'],
-    env: { ...process.env, BLOCKOUT_SMOKE_DIR: smokeDir }
+    // BLOCKOUT_CONFIG_DIR pins the control-server discovery file to the test
+    // dir instead of the platform config dir (~/.config vs %APPDATA%).
+    env: {
+      ...process.env,
+      BLOCKOUT_SMOKE_DIR: smokeDir,
+      BLOCKOUT_CONFIG_DIR: join(smokeDir, 'config')
+    }
   })
   page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
@@ -69,7 +75,7 @@ test.beforeAll(async () => {
   await expect(page.locator('.mode-switch')).toBeVisible()
 
   const { readFileSync } = await import('fs')
-  const discoveryFile = join(homedir(), '.config', 'blockout', 'control.json')
+  const discoveryFile = join(smokeDir, 'config', 'control.json')
   expect(existsSync(discoveryFile)).toBe(true)
   ;({ port, token } = JSON.parse(readFileSync(discoveryFile, 'utf-8')) as { port: number; token: string })
 })
@@ -172,4 +178,33 @@ test('import_scan copies the file in and returns the ScanRef; set/remove work', 
   expect(removed.ok).toBe(true)
   const after = await rpc<{ scene: { scans: { id: string }[] } }>('get_state')
   expect(after.data?.scene.scans.some((s) => s.id === scan.id)).toBe(false)
+})
+
+test('export_shot exports the real package through control-RPC', async () => {
+  test.setTimeout(300_000)
+  // Keep the render cheap: 1s shot, clean pass only, 720p.
+  const short = await rpc('set_shot', { duration: 1 })
+  expect(short.ok).toBe(true)
+
+  const body = await rpc<{ path: string; files: string[] }>('export_shot', {
+    profileId: 'seedance-2',
+    passes: { clean: true, depth: false, normal: false },
+    labels: 'off',
+    resolution: '720p'
+  })
+  expect(body.ok, `export_shot failed: ${body.error ?? ''}`).toBe(true)
+  const pkg = body.data!.path
+  // The exporter builds package paths with forward slashes on every platform.
+  expect(pkg.split('\\').join('/')).toContain('Smoke.blockout/exports')
+  expect(existsSync(pkg)).toBe(true)
+
+  // The returned file list matches the package on disk.
+  for (const f of body.data!.files) expect(existsSync(f)).toBe(true)
+  const onDisk = readdirSync(pkg)
+  expect(onDisk.some((f) => f.endsWith('_reference.mp4'))).toBe(true)
+  expect(onDisk).toContain('prompt.txt')
+  expect(onDisk).toContain('metadata.json')
+  expect(onDisk).toContain('README.txt')
+  expect(body.data!.files.some((f) => f.endsWith('_reference.mp4'))).toBe(true)
+  expect(body.data!.files.some((f) => f.endsWith('metadata.json'))).toBe(true)
 })

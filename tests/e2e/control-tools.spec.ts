@@ -100,7 +100,7 @@ test('list_motion_presets lists the motion library with the expected fields', as
 })
 
 test('spawn_choreography stages performers and their marks', async () => {
-  const body = await rpc<{ kind: string; staged: number; entityIds: string[] }>('spawn_choreography', {
+  const body = await rpc<{ kind: string; seed: number; staged: number; entityIds: string[] }>('spawn_choreography', {
     kind: 'dance',
     performers: 4,
     style: 'hiphop',
@@ -109,6 +109,8 @@ test('spawn_choreography stages performers and their marks', async () => {
   })
   expect(body.ok).toBe(true)
   expect(body.data?.kind).toBe('dance')
+  // The pinned seed is echoed back — the caller can persist it and replay.
+  expect(body.data?.seed).toBe(7)
   expect(body.data?.staged).toBe(4)
   expect(body.data?.entityIds.length).toBe(4)
 
@@ -128,7 +130,7 @@ test('choreograph_entities retargets existing people', async () => {
   // Place two people, then choreograph just those two.
   const a = await rpc<{ entityId: string }>('add_entity', { assetId: 'person.man', x: -1, z: 0 })
   const b = await rpc<{ entityId: string }>('add_entity', { assetId: 'person.woman', x: 1, z: 0 })
-  const body = await rpc<{ choreographed: number }>('choreograph_entities', {
+  const body = await rpc<{ seed: number; choreographed: number }>('choreograph_entities', {
     entityIds: [a.data!.entityId, b.data!.entityId],
     kind: 'fight',
     style: 'brawl',
@@ -136,6 +138,8 @@ test('choreograph_entities retargets existing people', async () => {
     seed: 3
   })
   expect(body.ok).toBe(true)
+  // The pinned seed is echoed back — the caller can persist it and replay.
+  expect(body.data?.seed).toBe(3)
   expect(body.data?.choreographed).toBe(2)
 })
 

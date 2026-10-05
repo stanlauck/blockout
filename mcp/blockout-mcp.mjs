@@ -245,7 +245,7 @@ const TOOLS = [
   {
     name: 'spawn_choreography',
     description:
-      'Stage a full choreography routine — a dance number, a paired or one-vs-many fight, or a foot chase — spawning fresh performers AND their per-beat blocking in one call. Reads as real staged choreography: dances hit on the count and change formation, fights are paired attack→reaction exchanges that stay in range, chases run a serpentine path with near-misses. Position with x/z and headingDeg (heading 0 faces -Z). Call list_choreography_options for the vocabulary.',
+      'Stage a full choreography routine — a dance number, a paired or one-vs-many fight, or a foot chase — spawning fresh performers AND their per-beat blocking in one call. Reads as real staged choreography: dances hit on the count and change formation, fights are paired attack→reaction exchanges that stay in range, chases run a serpentine path with near-misses. Position with x/z and headingDeg (heading 0 faces -Z). The response includes the seed that drove the routine — pass it back to replay the exact same choreography. Call list_choreography_options for the vocabulary.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -263,7 +263,7 @@ const TOOLS = [
         mirror: { type: 'boolean', description: 'Dance: mirror odd performers (fight: mirror stances).' },
         formationChange: { type: 'boolean', description: 'Dance: walk to a fresh formation between phrases.' },
         ending: { type: 'string', description: 'Fight: finish | sparring. Chase: caught | escape.' },
-        seed: { type: 'number', description: 'Optional PRNG seed for repeatable results (randomized if omitted).' },
+        seed: { type: 'number', description: 'Optional PRNG seed — pass a previously returned seed to replay that exact routine; when omitted a fresh one is assigned and echoed back in the response.' },
         x: { type: 'number', description: 'Stage center X in meters (default 0).' },
         z: { type: 'number', description: 'Stage center Z in meters (default 0).' },
         headingDeg: { type: 'number', description: 'Facing / travel direction in degrees (default 0).' }
@@ -275,7 +275,7 @@ const TOOLS = [
   {
     name: 'choreograph_entities',
     description:
-      'Retarget existing PERSON entities into a choreography routine: keeps their assets and labels but replaces their timeline with a fresh dance/fight/chase built around the group. Same routine options as spawn_choreography, plus entityIds. The performer count comes from the list and the routine centers on the group, so there is no x/z.',
+      'Retarget existing PERSON entities into a choreography routine: keeps their assets and labels but replaces their timeline with a fresh dance/fight/chase built around the group. Same routine options as spawn_choreography, plus entityIds. The performer count comes from the list and the routine centers on the group, so there is no x/z. The response includes the seed that drove the routine — pass it back to replay the exact same choreography.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -293,7 +293,7 @@ const TOOLS = [
         mirror: { type: 'boolean', description: 'Dance: mirror odd performers (fight: mirror stances).' },
         formationChange: { type: 'boolean', description: 'Dance: walk to a fresh formation between phrases.' },
         ending: { type: 'string', description: 'Fight: finish | sparring. Chase: caught | escape.' },
-        seed: { type: 'number', description: 'Optional PRNG seed (randomized if omitted).' }
+        seed: { type: 'number', description: 'Optional PRNG seed — pass a previously returned seed to replay that exact routine; when omitted a fresh one is assigned and echoed back in the response.' }
       },
       required: ['entityIds', 'kind'],
       additionalProperties: false

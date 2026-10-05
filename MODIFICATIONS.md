@@ -40,6 +40,11 @@ distribution review, and the ordinary complete third-party compliance review.
 
 ### `upstream/deterministic-seed`
 
+Determinism here means **a persisted seed plus the ability to pin it** — not
+the elimination of randomness. Shots still get fresh, varied seeds; the point
+is that the seed is recorded, travels with the project, and can be pinned to
+replay an export or a routine exactly.
+
 - New `src/engine/seed.ts`: deterministic seed generator (monotonic counter
   over a session-stable base — no `Math.random`) used everywhere a shot
   camera or routine seed is created.
@@ -50,5 +55,8 @@ distribution review, and the ordinary complete third-party compliance review.
 - Control actions: `new_shot` returns the assigned `seed`, `get_state`
   surfaces it, `set_shot` accepts a `seed` to pin it explicitly, and the
   choreography default seed uses the same generator.
+  `spawn_choreography` and `choreograph_entities` echo the routine's `seed`
+  back in their response — pass it again to replay the exact same
+  choreography (the pin, not a re-roll).
 - Unit tests: `tests/unit/seed.test.ts` (assignment, round-trip persistence,
   identical re-evaluation after save/load, seed actually drives rig noise).

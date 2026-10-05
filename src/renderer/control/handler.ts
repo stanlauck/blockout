@@ -491,6 +491,9 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const sel = useStore.getState().selection
       return {
         kind: spec.kind,
+        // The seed that drove the routine — echo it so the caller can pin
+        // and later replay this exact choreography.
+        seed: spec.seed,
         staged: sel?.kind === 'entities' ? sel.entityIds.length : 0,
         entityIds: sel?.kind === 'entities' ? sel.entityIds : []
       }
@@ -507,7 +510,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
       if (applied === 0) {
         throw new Error('No matching performers — choreography applies to people (person.* entities).')
       }
-      return { kind: spec.kind, choreographed: applied }
+      return { kind: spec.kind, seed: spec.seed, choreographed: applied }
     }
 
     case 'list_motion_presets': {

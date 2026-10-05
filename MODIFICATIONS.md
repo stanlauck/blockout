@@ -35,3 +35,24 @@ patch syntax and are documented by path under `third_party/ffmpeg/`.
 A stable or commercial distribution remains gated on upstream/trademark
 permission, platform code signing/notarization, a final FFmpeg/H.264
 distribution review, and the ordinary complete third-party compliance review.
+
+## Upstream contribution branches (2026)
+
+### `upstream/project-actions`
+
+- New control actions `new_project` and `open_project` in
+  `src/renderer/control/handler.ts` — the last manual step (creating/opening
+  a project by hand) is now agent-drivable:
+  - `new_project { folder, name? }` creates the folder (via the existing
+    `project:save` IPC), derives the name from the folder basename when
+    omitted, opens it through `store.newProject`, saves `project.json`, and
+    returns `{ ok, project_path, project_name }`. Without `folder` it falls
+    back to the native New Project dialog channel.
+  - `open_project { folder }` loads through the same recovery order as the
+    Welcome screen (newer autosave backup → project.json → backup) via
+    `project:load` + `store.loadFromJson`, returns
+    `{ ok, project_name }`.
+- MCP tools `new_project` / `open_project` in `mcp/blockout-mcp.mjs` +
+  README rows (35 tools).
+- E2E: `tests/e2e/project-actions.spec.ts` — the full agent loop with no UI
+  interaction (create → stage → reopen → error path → dialog fallback).

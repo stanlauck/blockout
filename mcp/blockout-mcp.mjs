@@ -43,6 +43,31 @@ const PROTOCOL_VERSION = '2024-11-05'
 // object is passed through verbatim as that action's params.
 const TOOLS = [
   {
+    name: 'new_project',
+    description:
+      'Create a new project at a folder you choose (created if needed) and open it — the agent-facing New Project. Pass an absolute folder path (conventionally ending in .blockout); with no folder the app falls back to the native dialog, which needs a human. Returns { ok, project_path, project_name }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', description: 'Absolute path for the new project folder (conventionally "Name.blockout"). Created if missing.' },
+        name: { type: 'string', description: 'Project name (defaults to the folder basename without .blockout).' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'open_project',
+    description:
+      'Open an existing .blockout project folder, the agent-facing Open Project. Recovers newer autosave backups the same way the Welcome screen does. Returns { ok, project_name }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', description: 'Absolute path to an existing project folder containing project.json.' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'get_state',
     description:
       'Call FIRST. Returns a summary of the current project, scene, and active shot: the placed entities (id, asset, label, position) and the choreography marks on the timeline (actor + camera). Coordinates are in meters, +X is right, -Z is forward/away from the default camera; heading 0 faces -Z; rotationDeg is clockwise seen from above.',

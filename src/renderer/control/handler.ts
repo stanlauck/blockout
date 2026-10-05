@@ -7,10 +7,11 @@
  * does is undoable, autosaved, and visible live.
  */
 
-import { useStore } from '../store'
+import { useStore, currentProjectJson } from '../store'
 import { ASSET_CATALOG, assetSpec } from '@engine/assets'
 import { createActorMark, createCameraMark } from '@engine/schema'
 import { newId } from '@engine/ids'
+import { sanitizeName } from '@engine/strings'
 import { renderStillPngForTest } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
@@ -144,6 +145,54 @@ function routineSpecFromParams(params: Params): RoutineSpec {
 async function execute(action: string, params: Params): Promise<unknown> {
   const s = useStore.getState()
   switch (action) {
+    case 'new_project': {
+      // Project lifecycle for agents — the same store/IPC path the Welcome
+      // screen's New Project button uses, minus the human at the dialog.
+      let folder = str(params, 'folder')
+      let name = str(params, 'name')
+      if (!folder) {
+        // No folder given: fall back to the native New Project dialog (the
+        // same IPC channel the Welcome screen uses); cancelling it fails.
+        const picked = await window.blockout.newProjectDialog()
+        if (!picked) throw new Error('folder is required — pass { folder } or complete the native dialog.')
+        folder = picked.folder
+        name = name ?? picked.name
+      }
+      if (!name) {
+        // Derive from the folder the way the native dialog does ("X.blockout" → "X").
+        const base = folder.split(/[\\/]/).filter(Boolean).pop() ?? ''
+        name = sanitizeName(base.replace(/\.blockout$/i, '')) || 'Untitled'
+      }
+      useStore.getState().newProject(folder, name)
+      const json = currentProjectJson()
+      if (!json) throw new Error('Project creation failed.')
+      await window.blockout.saveProject(folder, json)
+      useStore.getState().markSaved()
+      return { ok: true, project_path: folder, project_name: name }
+    }
+
+    case 'open_project': {
+      let folder = str(params, 'folder')
+      if (!folder) {
+        const picked = await window.blockout.openProjectDialog()
+        if (!picked) throw new Error('folder is required — pass { folder } or complete the native dialog.')
+        folder = picked
+      }
+      const { json, backupJson, backupNewer } = await window.blockout.loadProject(folder)
+      if (!json && !backupJson) throw new Error(`No project.json found in "${folder}".`)
+      const st = useStore.getState()
+      // Same recovery order as the Welcome screen: a meaningfully-newer
+      // autosave wins (the app died with unsaved work), then the main file,
+      // then the backup as a last resort.
+      const restored = backupNewer && backupJson ? st.loadFromJson(folder, backupJson) : false
+      const opened =
+        restored ||
+        (json ? st.loadFromJson(folder, json) : false) ||
+        (backupJson ? st.loadFromJson(folder, backupJson) : false)
+      if (!opened) throw new Error('Could not open the project — project.json is invalid.')
+      return { ok: true, project_name: useStore.getState().doc?.name ?? null }
+    }
+
     case 'get_state':
       requireDoc()
       return summary()

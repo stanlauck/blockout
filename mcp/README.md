@@ -84,10 +84,12 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 
 ## Tools
 
-33 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
+35 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
 
 | Tool | Params | Does |
 |---|---|---|
+| `new_project` | `folder, name?` | Create a new project at an absolute folder (created if missing) and open it. With no `folder` the native dialog opens — needs a human. Returns `{ ok, project_path, project_name }`. |
+| `open_project` | `folder` | Open an existing `.blockout` project folder (recovers newer autosave backups like the Welcome screen). Returns `{ ok, project_name }`. |
 | `get_state` | — | **Call first.** Project / scene / active-shot summary: placed entities (id, asset, label, position) and the actor + camera marks on the timeline. |
 | `list_assets` | `category?` | The placeable asset catalog (people, animals, vehicles, furniture, environment kits, primitives). Filter by category. |
 | `add_entity` | `assetId, x, z, label?, rotationDeg?` | Place an entity on the ground. Returns the new id. |

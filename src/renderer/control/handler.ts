@@ -148,16 +148,21 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'new_project': {
       // Project lifecycle for agents — the same store/IPC path the Welcome
       // screen's New Project button uses, minus the human at the dialog.
-      let folder = str(params, 'folder')
-      let name = str(params, 'name')
+      const folder = str(params, 'folder')
       if (!folder) {
-        // No folder given: fall back to the native New Project dialog (the
-        // same IPC channel the Welcome screen uses); cancelling it fails.
-        const picked = await window.blockout.newProjectDialog()
-        if (!picked) throw new Error('folder is required — pass { folder } or complete the native dialog.')
-        folder = picked.folder
-        name = name ?? picked.name
+        // The native-dialog fallback would park an RPC caller until a human
+        // answers a save sheet they may never see — folder is mandatory here.
+        throw new Error('folder is required for RPC calls')
       }
+      // Never silently clobber: a folder that already holds a project.json
+      // must be replaced explicitly.
+      if (!(bool(params, 'overwrite') ?? false)) {
+        const existing = await window.blockout.loadProject(folder)
+        if (existing.json !== null) {
+          throw new Error(`Project already exists at ${folder}. Pass overwrite: true to replace.`)
+        }
+      }
+      let name = str(params, 'name')
       if (!name) {
         // Derive from the folder the way the native dialog does ("X.blockout" → "X").
         const base = folder.split(/[\\/]/).filter(Boolean).pop() ?? ''
@@ -172,15 +177,23 @@ async function execute(action: string, params: Params): Promise<unknown> {
     }
 
     case 'open_project': {
-      let folder = str(params, 'folder')
+      const folder = str(params, 'folder')
       if (!folder) {
-        const picked = await window.blockout.openProjectDialog()
-        if (!picked) throw new Error('folder is required — pass { folder } or complete the native dialog.')
-        folder = picked
+        // Same RPC rule as new_project — never block on a human's dialog.
+        throw new Error('folder is required for RPC calls')
+      }
+      const st = useStore.getState()
+      // Opening another project replaces the in-memory doc — an unsaved one
+      // would lose everything since the last Save, so auto-save it first.
+      if (st.doc && st.dirty && st.projectFolder) {
+        const dirtyJson = currentProjectJson()
+        if (dirtyJson) {
+          await window.blockout.saveProject(st.projectFolder, dirtyJson)
+          st.markSaved()
+        }
       }
       const { json, backupJson, backupNewer } = await window.blockout.loadProject(folder)
       if (!json && !backupJson) throw new Error(`No project.json found in "${folder}".`)
-      const st = useStore.getState()
       // Same recovery order as the Welcome screen: a meaningfully-newer
       // autosave wins (the app died with unsaved work), then the main file,
       // then the backup as a last resort.

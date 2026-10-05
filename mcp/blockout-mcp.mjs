@@ -45,25 +45,28 @@ const TOOLS = [
   {
     name: 'new_project',
     description:
-      'Create a new project at a folder you choose (created if needed) and open it — the agent-facing New Project. Pass an absolute folder path (conventionally ending in .blockout); with no folder the app falls back to the native dialog, which needs a human. Returns { ok, project_path, project_name }.',
+      'Create a new project at a folder you choose (created if needed) and open it — the agent-facing New Project. Requires an absolute folder path (conventionally ending in .blockout). Refuses with an error if the folder already contains project.json unless overwrite: true is passed — it never silently replaces work. Returns { ok, project_path, project_name }.',
     inputSchema: {
       type: 'object',
       properties: {
-        folder: { type: 'string', description: 'Absolute path for the new project folder (conventionally "Name.blockout"). Created if missing.' },
-        name: { type: 'string', description: 'Project name (defaults to the folder basename without .blockout).' }
+        folder: { type: 'string', description: 'Absolute path for the new project folder (conventionally "Name.blockout"). Created if missing. Required.' },
+        name: { type: 'string', description: 'Project name (defaults to the folder basename without .blockout).' },
+        overwrite: { type: 'boolean', description: 'Replace a project.json that already exists at the folder. Default false — an existing project is an error, not data loss.' }
       },
+      required: ['folder'],
       additionalProperties: false
     }
   },
   {
     name: 'open_project',
     description:
-      'Open an existing .blockout project folder, the agent-facing Open Project. Recovers newer autosave backups the same way the Welcome screen does. Returns { ok, project_name }.',
+      'Open an existing .blockout project folder, the agent-facing Open Project. Recovers newer autosave backups the same way the Welcome screen does, and auto-saves the current project first if it has unsaved changes. Returns { ok, project_name }.',
     inputSchema: {
       type: 'object',
       properties: {
-        folder: { type: 'string', description: 'Absolute path to an existing project folder containing project.json.' }
+        folder: { type: 'string', description: 'Absolute path to an existing project folder containing project.json. Required.' }
       },
+      required: ['folder'],
       additionalProperties: false
     }
   },

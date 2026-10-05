@@ -111,11 +111,58 @@ test('open_project with a missing project fails cleanly', async () => {
   expect(body.error).toContain('No project.json')
 })
 
-test('new_project without a folder falls back to the native-dialog channel', async () => {
-  // Under the smoke harness the dialog channel bypasses the native dialog
-  // and creates Smoke.blockout — the same path a human gets from Welcome.
-  const body = await rpc<{ ok: boolean; project_path: string; project_name: string }>('new_project', {})
-  expect(body.ok).toBe(true)
-  expect(body.data!.project_name).toBe('Smoke')
-  expect(existsSync(join(smokeDir, 'Smoke.blockout', 'project.json'))).toBe(true)
+test('project actions require a folder over RPC — no native-dialog fallback', async () => {
+  // A dialog fallback would park the RPC caller until a human answers a
+  // save sheet; over the control server folder is mandatory instead.
+  const created = await rpc<{ ok: boolean }>('new_project', {})
+  expect(created.ok).toBe(false)
+  expect(created.error).toBe('folder is required for RPC calls')
+  const opened = await rpc<{ ok: boolean }>('open_project', {})
+  expect(opened.ok).toBe(false)
+  expect(opened.error).toBe('folder is required for RPC calls')
+})
+
+test('new_project refuses to clobber an existing project without overwrite', async () => {
+  const folder = join(smokeDir, 'Agent.blockout')
+  const refused = await rpc<{ ok: boolean; project_name: string }>('new_project', { folder })
+  expect(refused.ok).toBe(false)
+  expect(refused.error).toContain('Project already exists at')
+  expect(refused.error).toContain('overwrite: true')
+  // The existing project.json is untouched by the refusal.
+  expect(JSON.parse(readFileSync(join(folder, 'project.json'), 'utf-8')).name).toBe('Agent Project')
+
+  const replaced = await rpc<{ ok: boolean; project_name: string }>('new_project', {
+    folder,
+    overwrite: true,
+    name: 'Replaced'
+  })
+  expect(replaced.ok, `new_project overwrite failed: ${replaced.error ?? ''}`).toBe(true)
+  expect(replaced.data!.project_name).toBe('Replaced')
+  expect(JSON.parse(readFileSync(join(folder, 'project.json'), 'utf-8')).name).toBe('Replaced')
+  const state = await rpc<{ project: string }>('get_state')
+  expect(state.data!.project).toBe('Replaced')
+})
+
+test('open_project auto-saves a dirty document before switching', async () => {
+  // Stage an entity and do NOT hit Save — the doc is dirty in memory only.
+  const placed = await rpc<{ entityId: string }>('add_entity', { assetId: 'person.man', x: 1, z: 1 })
+  expect(placed.ok).toBe(true)
+
+  const switched = await rpc<{ ok: boolean; project_name: string }>('open_project', {
+    folder: join(smokeDir, 'Other.blockout')
+  })
+  expect(switched.ok, `open_project failed: ${switched.error ?? ''}`).toBe(true)
+  expect(switched.data!.project_name).toBe('Other')
+
+  // The dirty entity survived the switch: auto-save wrote it to disk and
+  // reopening restores it.
+  const saved = JSON.parse(readFileSync(join(smokeDir, 'Agent.blockout', 'project.json'), 'utf-8'))
+  expect(saved.name).toBe('Replaced')
+  expect(saved.scenes[0].entities.length).toBe(1)
+  const back = await rpc<{ ok: boolean; project_name: string }>('open_project', {
+    folder: join(smokeDir, 'Agent.blockout')
+  })
+  expect(back.ok).toBe(true)
+  const state = await rpc<{ scene: { entities: unknown[] } | null }>('get_state')
+  expect(state.data!.scene?.entities.length).toBe(1)
 })

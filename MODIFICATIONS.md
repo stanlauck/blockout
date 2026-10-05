@@ -43,16 +43,22 @@ distribution review, and the ordinary complete third-party compliance review.
 - New control actions `new_project` and `open_project` in
   `src/renderer/control/handler.ts` — the last manual step (creating/opening
   a project by hand) is now agent-drivable:
-  - `new_project { folder, name? }` creates the folder (via the existing
-    `project:save` IPC), derives the name from the folder basename when
-    omitted, opens it through `store.newProject`, saves `project.json`, and
-    returns `{ ok, project_path, project_name }`. Without `folder` it falls
-    back to the native New Project dialog channel.
-  - `open_project { folder }` loads through the same recovery order as the
-    Welcome screen (newer autosave backup → project.json → backup) via
-    `project:load` + `store.loadFromJson`, returns
-    `{ ok, project_name }`.
+  - `new_project { folder, name?, overwrite? }` creates the folder (via the
+    existing `project:save` IPC), derives the name from the folder basename
+    when omitted, opens it through `store.newProject`, saves `project.json`,
+    and returns `{ ok, project_path, project_name }`. `folder` is required —
+    a missing one is an error, never a native-dialog fallback (a dialog would
+    park an RPC caller until a human answers it). A folder that already
+    contains `project.json` is refused with an error unless
+    `overwrite: true` is passed — no silent clobbering.
+  - `open_project { folder }` auto-saves the current project first when it
+    has unsaved changes (switching projects replaces the in-memory doc),
+    then loads through the same recovery order as the Welcome screen (newer
+    autosave backup → project.json → backup) via `project:load` +
+    `store.loadFromJson`, returns `{ ok, project_name }`. `folder` is
+    required, same RPC rule.
 - MCP tools `new_project` / `open_project` in `mcp/blockout-mcp.mjs` +
   README rows (35 tools).
 - E2E: `tests/e2e/project-actions.spec.ts` — the full agent loop with no UI
-  interaction (create → stage → reopen → error path → dialog fallback).
+  interaction (create → stage → reopen → error paths → no-folder RPC
+  refusal → overwrite guard → dirty-doc auto-save on switch).

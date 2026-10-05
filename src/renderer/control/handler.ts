@@ -45,6 +45,26 @@ function requireDoc(): void {
   }
 }
 
+/**
+ * Wait until the live SceneManager's evaluator is built for `shotId` — the
+ * real signal that the viewport switched shots, replacing a guessed sleep.
+ * A mounted manager rebuilds synchronously off its store subscription, so
+ * the already-switched common case resolves without waiting at all; only a
+ * viewport that is mid-remount (mode switches remount it) needs to poll
+ * until the fresh manager registers and syncs.
+ */
+async function waitForShotSwitch(shotId: string, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const manager = getSceneManager()
+    if (manager && manager.syncedShotId() === shotId) return
+    // A timer (not rAF): the window may be in the background while an agent
+    // drives it, and hidden windows pause rAF entirely.
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  throw new Error('Viewport did not finish switching shots — try again in a moment.')
+}
+
 function summary(): unknown {
   const s = useStore.getState()
   const scene = s.scene()
@@ -611,43 +631,56 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const scene0 = s.scene()
       if (!scene0) throw new Error('No scene selected.')
       const shotIdParam = str(params, 'shotId')
-      if (shotIdParam) {
+      // The caller's active shot is restored afterwards — exporting another
+      // shot must not silently leave the project parked on it.
+      const previousShotId = useStore.getState().shotId
+      if (shotIdParam && shotIdParam !== previousShotId) {
         if (![...scene0.shots, ...(scene0.drafts ?? [])].some((sh) => sh.id === shotIdParam)) {
           throw new Error(`No shot "${shotIdParam}" — call get_state for shot ids.`)
         }
-        s.selectShot(shotIdParam)
-        await new Promise((r) => setTimeout(r, 100)) // let the SceneManager rebuild
       }
-      const profileId = str(params, 'profileId') ?? useStore.getState().doc!.settings.defaultProfileId
-      if (!BUILTIN_PROFILES.some((p) => p.id === profileId)) {
-        throw new Error(
-          `Unknown profileId "${profileId}". Valid: ${BUILTIN_PROFILES.map((p) => p.id).join(', ')}`
-        )
+      try {
+        if (shotIdParam && shotIdParam !== previousShotId) {
+          s.selectShot(shotIdParam)
+          // Real signal, not a sleep: wait until the SceneManager's evaluator
+          // is built for the requested shot before rendering a single frame.
+          await waitForShotSwitch(shotIdParam)
+        }
+        const profileId = str(params, 'profileId') ?? useStore.getState().doc!.settings.defaultProfileId
+        if (!BUILTIN_PROFILES.some((p) => p.id === profileId)) {
+          throw new Error(
+            `Unknown profileId "${profileId}". Valid: ${BUILTIN_PROFILES.map((p) => p.id).join(', ')}`
+          )
+        }
+        const passesParam = params.passes as Params | undefined
+        const passes = {
+          clean: (passesParam ? bool(passesParam, 'clean') : undefined) ?? true,
+          depth: (passesParam ? bool(passesParam, 'depth') : undefined) ?? true,
+          normal: (passesParam ? bool(passesParam, 'normal') : undefined) ?? false
+        }
+        const labels = str(params, 'labels')
+        if (labels !== undefined && !['on', 'stillsOnly', 'off'].includes(labels)) {
+          throw new Error("labels must be 'on', 'stillsOnly', or 'off'.")
+        }
+        const resolution = str(params, 'resolution')
+        if (resolution !== undefined && !['auto', '720p', '1080p'].includes(resolution)) {
+          throw new Error("resolution must be 'auto', '720p', or '1080p'.")
+        }
+        const result = await exportShot({
+          profileId,
+          passes,
+          labels: (labels as 'on' | 'stillsOnly' | 'off' | undefined) ?? 'stillsOnly',
+          resolution: (resolution as ExportResolution | undefined) ?? 'auto'
+        })
+        if (!result.ok || !result.packagePath) {
+          throw new Error(result.error ?? 'Export failed.')
+        }
+        return { path: result.packagePath, files: result.files ?? [] }
+      } finally {
+        if (shotIdParam && previousShotId && shotIdParam !== previousShotId) {
+          useStore.getState().selectShot(previousShotId)
+        }
       }
-      const passesParam = params.passes as Params | undefined
-      const passes = {
-        clean: (passesParam ? bool(passesParam, 'clean') : undefined) ?? true,
-        depth: (passesParam ? bool(passesParam, 'depth') : undefined) ?? true,
-        normal: (passesParam ? bool(passesParam, 'normal') : undefined) ?? false
-      }
-      const labels = str(params, 'labels')
-      if (labels !== undefined && !['on', 'stillsOnly', 'off'].includes(labels)) {
-        throw new Error("labels must be 'on', 'stillsOnly', or 'off'.")
-      }
-      const resolution = str(params, 'resolution')
-      if (resolution !== undefined && !['auto', '720p', '1080p'].includes(resolution)) {
-        throw new Error("resolution must be 'auto', '720p', or '1080p'.")
-      }
-      const result = await exportShot({
-        profileId,
-        passes,
-        labels: (labels as 'on' | 'stillsOnly' | 'off' | undefined) ?? 'stillsOnly',
-        resolution: (resolution as ExportResolution | undefined) ?? 'auto'
-      })
-      if (!result.ok || !result.packagePath) {
-        throw new Error(result.error ?? 'Export failed.')
-      }
-      return { path: result.packagePath, files: result.files ?? [] }
     }
 
     case 'set_reference': {

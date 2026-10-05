@@ -402,6 +402,15 @@ export class SceneManager {
     this.syncSelection()
   }
 
+  /**
+   * Id of the shot the evaluator is currently built for (drafts included).
+   * Agent surface: control actions verify against this that the viewport
+   * really switched shots before exporting, instead of sleeping a guess.
+   */
+  syncedShotId(): string | null {
+    return this.shot?.id ?? null
+  }
+
   /* ------------------------- 3D scans (splats) -------------------------- */
 
   /** Diff the scene's ScanRefs against loaded splat viewers. */

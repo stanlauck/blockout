@@ -46,8 +46,16 @@ distribution review, and the ordinary complete third-party compliance review.
   `passes? { clean, depth, normal }`, `labels?`, `resolution?` — and returns
   `{ path, files }`. The 600s timeout for it already existed in
   `src/main/control.ts`; only the renderer handler was missing.
+- With `shotId`, the handler waits for a real signal — the live
+  SceneManager's evaluator reporting the requested shot (new public
+  `syncedShotId()`, `src/renderer/viewport/SceneManager.ts`) — instead of a
+  guessed 100 ms sleep, and restores the previously active shot after the
+  export (including on failure): exporting another shot never changes the
+  caller's active shot.
 - `exportShot`/`exportStillAtPlayhead` (renderer/export/exporter.ts) now
   report every file they wrote (`files` on the result).
 - MCP tool `export_shot` in `mcp/blockout-mcp.mjs` + README row (34 tools).
 - E2E: `tests/e2e/control-tools.spec.ts` exports a real package through
-  control-RPC and asserts the path and file list on disk.
+  control-RPC and asserts the path and file list on disk, plus the shotId
+  path: package belongs to the requested shot and the active shot is
+  restored afterwards.

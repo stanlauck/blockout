@@ -208,3 +208,37 @@ test('export_shot exports the real package through control-RPC', async () => {
   expect(body.data!.files.some((f) => f.endsWith('_reference.mp4'))).toBe(true)
   expect(body.data!.files.some((f) => f.endsWith('metadata.json'))).toBe(true)
 })
+
+test('export_shot with shotId exports that shot and restores the active one', async () => {
+  test.setTimeout(300_000)
+  // The shot the export should target without making it active.
+  const before = await rpc<{ shot: { id: string; name: string } | null }>('get_state')
+  expect(before.ok).toBe(true)
+  const targetId = before.data!.shot!.id
+  const targetName = before.data!.shot!.name
+
+  // Switch the project to a different active shot.
+  const created = await rpc<{ shotId: string }>('new_shot', { name: 'Solo' })
+  expect(created.ok).toBe(true)
+  expect(created.data!.shotId).not.toBe(targetId)
+  // Keep this shot's render cheap too (it stays active — nothing exports it).
+  await rpc('set_shot', { duration: 1 })
+
+  const body = await rpc<{ path: string; files: string[] }>('export_shot', {
+    shotId: targetId,
+    profileId: 'seedance-2',
+    passes: { clean: true, depth: false, normal: false },
+    labels: 'off',
+    resolution: '720p'
+  })
+  expect(body.ok, `export_shot failed: ${body.error ?? ''}`).toBe(true)
+  // The package is the TARGET shot's, not the active one's.
+  expect(body.data!.path.split('\\').join('/')).toContain(`Shot-${targetName}/`)
+  expect(existsSync(body.data!.path)).toBe(true)
+  for (const f of body.data!.files) expect(existsSync(f)).toBe(true)
+
+  // The active shot is the one that was active before the export — exporting
+  // another shot must not leave the project parked on it.
+  const after = await rpc<{ shot: { id: string } | null }>('get_state')
+  expect(after.data!.shot!.id).toBe(created.data!.shotId)
+})

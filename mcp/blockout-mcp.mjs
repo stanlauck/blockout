@@ -466,12 +466,12 @@ const TOOLS = [
   {
     name: 'export_shot',
     description:
-      'Export the active shot as a generator package (the Deliver-mode button): clean/depth/normal mp4 passes, stills at every camera mark, top-down diagram, prompt.txt, and metadata.json. Returns { path, files }. Runs the shot export seed stored with the project, so repeated calls replay identical bytes.',
+      'Export the active shot as a generator package (the Deliver-mode button): clean/depth/normal mp4 passes, stills at every camera mark, top-down diagram, prompt.txt, and metadata.json. Returns { path, files }. Runs the shot export seed stored with the project, so repeated calls replay identical bytes. Pass shotId to export a different shot: the export waits until the viewport has really switched to it, and the previously active shot is restored afterwards — your active shot never changes.',
     inputSchema: {
       type: 'object',
       properties: {
         profileId: { type: 'string', description: "Generator profile id (default: the project's default profile). Built-ins: seedance-2, veo-3.1, kling-2, ltx-2.3, wan-2.2, gpt-image-2, nano-banana, ideogram, krea-2." },
-        shotId: { type: 'string', description: 'Shot to export (default: the active shot). Selects it first.' },
+        shotId: { type: 'string', description: 'Shot to export (default: the active shot). The previously active shot is restored when the export finishes.' },
         passes: {
           type: 'object',
           description: 'Which video passes to render (defaults: clean + depth).',

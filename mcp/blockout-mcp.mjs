@@ -160,14 +160,16 @@ const TOOLS = [
         name: { type: 'string', description: 'Shot name.' },
         duration: { type: 'number', description: 'Shot duration in seconds.' },
         aspect: { type: 'string', description: 'Aspect ratio, e.g. "16:9", "9:16", "2.39:1".' },
-        fps: { type: 'number', description: 'Frames per second.' }
+        fps: { type: 'number', description: 'Frames per second.' },
+        seed: { type: 'number', description: 'Pin the shot export seed — replays byte-identical exports of another machine’s shot.' }
       },
       additionalProperties: false
     }
   },
   {
     name: 'new_shot',
-    description: 'Create a new shot in the current scene (same blocking, fresh camera). Returns the new shot.',
+    description:
+      'Create a new shot in the current scene (same blocking, fresh camera). Returns { shotId, seed } — the seed is fixed at creation and saved with the shot, so re-exporting replays identical bytes.',
     inputSchema: {
       type: 'object',
       properties: { name: { type: 'string', description: 'Optional name for the new shot.' } },

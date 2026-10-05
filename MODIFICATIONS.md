@@ -35,3 +35,20 @@ patch syntax and are documented by path under `third_party/ffmpeg/`.
 A stable or commercial distribution remains gated on upstream/trademark
 permission, platform code signing/notarization, a final FFmpeg/H.264
 distribution review, and the ordinary complete third-party compliance review.
+
+## Upstream contribution branches (2026)
+
+### `upstream/deterministic-seed`
+
+- New `src/engine/seed.ts`: deterministic seed generator (monotonic counter
+  over a session-stable base — no `Math.random`) used everywhere a shot
+  camera or routine seed is created.
+- `createShot` (engine/schema.ts) and `addCameraToShot` (renderer/store.ts)
+  assign the seed once at creation and persist it with the project; exports
+  keep replaying the stored `shot.camera.seed`, so re-exporting a shot
+  produces identical bytes.
+- Control actions: `new_shot` returns the assigned `seed`, `get_state`
+  surfaces it, `set_shot` accepts a `seed` to pin it explicitly, and the
+  choreography default seed uses the same generator.
+- Unit tests: `tests/unit/seed.test.ts` (assignment, round-trip persistence,
+  identical re-evaluation after save/load, seed actually drives rig noise).

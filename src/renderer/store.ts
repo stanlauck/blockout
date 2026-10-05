@@ -20,6 +20,7 @@ import {
 } from '@engine/schema'
 import { assetSpec } from '@engine/assets'
 import { newId } from '@engine/ids'
+import { nextSeed } from '@engine/seed'
 import { generateSequence, choreographMotion } from '@engine/sequences'
 import { buildRoutine } from '@engine/choreography'
 import { ACTION_PRESETS } from '@engine/action-presets'
@@ -737,7 +738,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
         sensorId: shot.camera.sensorId,
         rig: 'sticks',
         rigIntensity: 0.5,
-        seed: Math.floor(Math.random() * 1e9),
+        seed: nextSeed(),
         marks: []
       }
       shot.cameraName = letter

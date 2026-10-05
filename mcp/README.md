@@ -96,8 +96,8 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `add_actor_mark` | `entityId, x, z, time, gait?` | Drop a timeline mark: at `time` the actor is at `x,z`. Chain marks to choreograph a walk. `gait`: walk / jog / run / stand. |
 | `add_camera_mark` | `x, y, z, panDeg, tiltDeg, time, focalLength?` | Drop a camera mark: camera at `x,y,z` looking `panDeg`/`tiltDeg` at `time`. |
 | `clear_camera_marks` | — | Clear the active shot's camera marks (keeps actor marks). |
-| `set_shot` | `name?, duration?, aspect?, fps?` | Update active-shot settings; omitted fields unchanged. |
-| `new_shot` | `name?` | New shot in the scene (same blocking, fresh camera). |
+| `set_shot` | `name?, duration?, aspect?, fps?, seed?` | Update active-shot settings; omitted fields unchanged. `seed` pins the shot's export seed for byte-identical re-exports. |
+| `new_shot` | `name?` | New shot in the scene (same blocking, fresh camera). Returns `{ shotId, seed }` — the seed is fixed at creation and saved with the shot, so re-exporting it replays identical bytes. |
 | `apply_framing` | `kind: 2S\|OTS\|REV\|TOP\|LOW\|DUTCH` | Auto-frame the camera relative to labelled subjects. |
 | `list_action_presets` | — | Motion-path presets for non-character performers (plane, heli, bird, chase moves, debris…). Call before `apply_action_preset`. |
 | `apply_action_preset` | `entityId, presetId` | Lay a full motion path (with altitude) on an entity from its current pose. Replaces its marks. |

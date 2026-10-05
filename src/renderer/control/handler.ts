@@ -11,6 +11,7 @@ import { useStore } from '../store'
 import { ASSET_CATALOG, assetSpec } from '@engine/assets'
 import { createActorMark, createCameraMark } from '@engine/schema'
 import { newId } from '@engine/ids'
+import { nextSeed } from '@engine/seed'
 import { renderStillPngForTest } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
@@ -90,6 +91,7 @@ function summary(): unknown {
           fps: shot.fps,
           aspect: shot.aspect,
           camera: shot.cameraName ?? 'A',
+          seed: shot.camera.seed,
           cameraMarks: shot.camera.marks.map((m, i) => ({
             index: i + 1,
             time: m.time,
@@ -111,7 +113,9 @@ function summary(): unknown {
 /**
  * Build a validated `RoutineSpec` from control params (shared by
  * spawn_choreography and choreograph_entities). The engine stays pure — this
- * renderer side picks the default seed when none is supplied.
+ * renderer side picks the default seed when none is supplied (from the same
+ * deterministic generator shots use, never Math.random, so nothing random
+ * enters the project unrecorded).
  */
 function routineSpecFromParams(params: Params): RoutineSpec {
   const kind = str(params, 'kind') as ChoreoKind | undefined
@@ -122,7 +126,7 @@ function routineSpecFromParams(params: Params): RoutineSpec {
     kind,
     performers: Math.round(flt(params, 'performers') ?? (kind === 'dance' ? 6 : 2)),
     durationS: flt(params, 'durationS') ?? useStore.getState().shot()?.duration ?? 8,
-    seed: flt(params, 'seed') ?? Math.floor(Math.random() * 1e9)
+    seed: flt(params, 'seed') ?? nextSeed()
   }
   const style = str(params, 'style')
   if (style) spec.style = style
@@ -284,6 +288,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
         const duration = flt(params, 'duration')
         const fps = flt(params, 'fps')
         const aspect = str(params, 'aspect') as AspectId | undefined
+        const seed = flt(params, 'seed')
         if (name) shot.name = name
         // Never clamp marks on duration change — blocking is shared.
         if (duration !== undefined) shot.duration = Math.min(600, Math.max(0.5, duration))
@@ -291,6 +296,9 @@ async function execute(action: string, params: Params): Promise<unknown> {
         if (aspect && ['16:9', '9:16', '2.39:1', '4:3', '1:1'].includes(aspect)) {
           shot.aspect = aspect
         }
+        // Pin the shot's export seed explicitly (e.g. to replay another
+        // machine's shot byte-identically). Fixed at creation otherwise.
+        if (seed !== undefined) shot.camera.seed = Math.floor(Math.abs(seed))
       })
       return { ok: true }
     }
@@ -309,7 +317,10 @@ async function execute(action: string, params: Params): Promise<unknown> {
           if (shot) shot.name = name
         })
       }
-      return { shotId: useStore.getState().shotId }
+      // The seed was assigned at creation and saved with the shot — every
+      // export of this shot replays it.
+      const created = useStore.getState().shot()
+      return { shotId: useStore.getState().shotId, seed: created?.camera.seed }
     }
 
     case 'apply_framing': {

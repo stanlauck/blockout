@@ -6,6 +6,7 @@
  */
 
 import { newId } from './ids'
+import { nextSeed } from './seed'
 import type {
   ActorMark,
   BlockingTake,
@@ -62,7 +63,9 @@ export function createShot(scene: Scene, name: string): Shot {
       sensorId: 'super35',
       rig: 'sticks',
       rigIntensity: 0.5,
-      seed: Math.floor(Math.random() * 1e9),
+      // Assigned once here and persisted — every export replays this seed so
+      // re-exporting the shot produces identical bytes.
+      seed: nextSeed(),
       marks: []
     }
   }
